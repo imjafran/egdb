@@ -1,8 +1,7 @@
 <?php
 
 /**
- * Abstract class for all EVR SaaS classes
- * Base Model
+ * Abstract model class for all models in the application.
  * @since 1.0.0
  */
 
@@ -19,22 +18,23 @@ namespace EGDB;
 defined('ABSPATH') or die('Direct Script not Allowed');
 
 
-/**
- * Define
- */
-
-define('EGDB_VERSION', '1.0.0');
-define('EGDB_PATH', plugin_dir_path(__FILE__));
 
 /**
- * Load files
+ * Load required files
  */
 require_once __DIR__ . '/Query.php';
 
 
-// abstract model class
+/**
+ * Abstract model class
+ */
 abstract class Model
 {
+     /**
+     * table
+     * @var string
+     */
+
     protected $table = null;
 
      /**
@@ -61,22 +61,27 @@ abstract class Model
      */
     protected $deleted_at = 'deleted_at';
 
+     /**
+     * _data
+     * @var object
+     */
+    public $_data = null;
 
-    public $data = null;
+     /**
+     * _rawData
+     * @var object
+     */
+    protected $rawData = null; 
 
-    protected $rawData = null;
-
-
-    protected $foundRows = null;
-    protected $AffectedRows = null;
-    protected $lastQuery = null;
 
     # constructor
     function __construct($data = null)
     {
+        // assign data if NOT null
         if ($data) {
-            $this->rawData = $data;
-            $this->data = $this->getter($data);
+            $this->_rawData = $data;
+            
+            $this->_data = $this->getter($data);
         } 
     }
 
@@ -86,7 +91,7 @@ abstract class Model
         return $data;
     }
 
-    # default getter
+    # default getter applied after fetching row(s)
     function getter($data)
     {
         return $data;
@@ -105,7 +110,8 @@ abstract class Model
             throw new \Exception('Table not set');
         }
 
-        $database = new Query($instance->table, [
+        // instantiate core query builder 
+        $database = new \EGDB\Query($instance->table, [
             'primaryKey' => $instance->primaryKey,
             'created_at' => $instance->created_at,
             'updated_at' => $instance->updated_at,
@@ -114,6 +120,7 @@ abstract class Model
         ]); 
 
        
+        // if method exists on query builder
         if (method_exists($database, $method)) {
             $results = $database->$method(...$arguments);
  
@@ -151,7 +158,7 @@ abstract class Model
         return $object->_load($object, $method, $arguments);
     }
 
-    // get method
+    // get method non static
     public function __call($method, $arguments)
     { 
         return $this->_load($this, $method, $arguments);
@@ -163,13 +170,14 @@ abstract class Model
 
         if(method_exists($this, $key)) {
             $restrictedMethods = [
-                'setter',
-                'getter',
-                'data',
-                'rawData',
-                'foundRows',
-                'AffectedRows',
-                'lastQuery', 
+                '_setter',
+                '_getter',
+                '_data',
+                '_rawData',
+                'hasOne',
+                'hasMany',
+                'belongsTo',
+                'belongsToMany',
             ];
 
             if (!in_array($key, $restrictedMethods)) {
@@ -177,23 +185,23 @@ abstract class Model
             }
         }
 
-        if (isset($this->data->$key)) {
-            return $this->data->$key;
+        if (isset($this->_data->$key)) {
+            return $this->_data->$key;
         }
     }
 
     # set value
     function __set($key, $value)
     {
-        if (isset($this->rawData->$key)) {
-            $this->rawData->$key = $value;
+        if (isset($this->_rawData->$key)) {
+            $this->_rawData->$key = $value;
         }
     }
 
     # get data
     public function data()
     {
-        return $this->data;
+        return $this->_data;
     }
 
     // has one

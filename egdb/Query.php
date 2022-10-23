@@ -1,7 +1,7 @@
 <?php
 
 /**
- * Abstract class for all EVR SaaS classes
+ * EGDB Core Class as Query Builder
  * Base Query
  * @since 1.0.0
  */
@@ -13,9 +13,12 @@ namespace EGDB;
 # Exit if accessed directly
 defined('ABSPATH') or die('Direct Script not Allowed');
 
-// abstract model class works with WPDB
 
-class Query
+/**
+ * Core EGDB Query Class 
+ */
+
+final class Query
 {
     /**
      * table prefix
@@ -152,22 +155,6 @@ class Query
      * Example: ['id' => 1, 'name' => 'test']  
      */
     public $data = [];
-
-    /**
-     * Number of rows found
-     */
-    public $foundRows = 0;
-
-    /**
-     * Number of rows affected
-     * @var int
-     */
-    protected $affectedRows = 0;
-
-    /**
-     * lastQuery
-     */
-    public $lastQuery = '';
 
     /**
      * Data setter before insert or update
@@ -575,7 +562,7 @@ class Query
             $this->data['created_at'] = gmdate('Y-m-d H:i:s');
         }
 
-        return $this->execute();
+       return $this->execute();  
     }
 
     # update
@@ -594,6 +581,7 @@ class Query
         } elseif (isset($data[$this->primaryKey])) {
             $this->where("{$this->primaryKey} = {$data[$this->primaryKey]}");
         } 
+
         return $this->execute();
     }
 
@@ -603,7 +591,6 @@ class Query
         global $wpdb;
         return $wpdb->insert_id;
     }
-
 
     # exists
     function exists($id)
@@ -682,3 +669,4 @@ class Query
     }
 
 }
+
