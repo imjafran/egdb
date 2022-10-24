@@ -15,7 +15,7 @@ define('EGDB_EXAMPLE_PLUGIN', __FILE__);
 # Exit if accessed directly
 defined('ABSPATH') or die('Direct Script not Allowed');
 
-require_once __DIR__ . '/egdb/Model.php'; 
+require_once __DIR__ . '/egdb/EG_Model.php'; 
 
 require_once __DIR__ . '/example-models/Table.php';
 require_once __DIR__ . '/example-models/Reservation.php';
@@ -44,15 +44,21 @@ final class EGDB_Example_Plugin {
     # get tables
     public function get_tables()
     {
-        $result = Table::first();
-        return new WP_REST_Response( ['reservations' => $result->reservations[0]->data()], 200 );
+        $result = Table::select ('id', 'name', 'capacity');
+        return new WP_REST_Response( $result->getQuery() ); 
     }
 
     # get reservations
     public function get_reservations()
     {
-        $result = Reservation::first();
-        return new WP_REST_Response( $result, 200 );
+        $result = new Reservation();
+
+        $result->guests = 10;
+        $result->table_id = 1; 
+        $result->user_id = 1; 
+        $result->save();
+
+        return new WP_REST_Response( $result , 200 );
     }
 }
 

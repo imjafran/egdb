@@ -1,43 +1,28 @@
 <?php
 
 /**
- * Abstract class for all EVR SaaS classes
- * Base Model
+ * Abstract base class for all models 
  * @since 1.0.0
  */
-
-
-/**
- * Namespace
- */
-namespace EGDB;
-
+ 
 
 /**
  * Exit if accessed directly
  */
 defined('ABSPATH') or die('Direct Script not Allowed');
 
-
-/**
- * Define
- */
-
-define('EGDB_VERSION', '1.0.0');
-define('EGDB_PATH', plugin_dir_path(__FILE__));
-
 /**
  * Load files
  */
-require_once __DIR__ . '/Query.php';
+require_once __DIR__ . '/EG_Query.php';
 
 
 // abstract model class
-abstract class Model
+abstract class EG_Model
 {
     protected $table = null;
 
-     /**
+    /**
      * primary key
      * @var string
      */
@@ -61,23 +46,63 @@ abstract class Model
      */
     protected $deleted_at = 'deleted_at';
 
+    /**
+     * fields
+     * @var array 
+     */
+    protected $fields = [];
+    
+    /**
+     * editable fields
+     * @var array 
+     */
+    protected $editable = [];
 
-    public $data = null;
+    /**
+     * hidden fields
+     * @var array 
+     */
+    protected $hidden = [];
 
-    protected $rawData = null;
+    /**
+     * fillable fields
+     * @var array 
+     */
+    protected $fillable = [];
 
 
-    protected $foundRows = null;
-    protected $AffectedRows = null;
-    protected $lastQuery = null;
+    /**
+     * data
+     * @var array 
+     */
+    public $_data = [];
 
     # constructor
     function __construct($data = null)
     {
-        if ($data) {
-            $this->rawData = $data;
-            $this->data = $this->getter($data);
-        } 
+        if ($data) { 
+
+            $array_data = array_map(function ($value) {
+                switch (true) {
+                    case is_numeric($value):
+                        return (int) $value;
+                        break;
+
+                    case is_bool($value):
+                        return (bool) $value;
+                        break;
+
+                    default:
+                        return maybe_unserialize($value);
+                        break;
+                }
+            }, $data);
+
+            $this->_data = $this->getter( $array_data ); 
+ 
+        }
+
+        return $this;
     }
 
     # default setter applied before insert or update
@@ -105,18 +130,21 @@ abstract class Model
             throw new \Exception('Table not set');
         }
 
-        $database = new Query($instance->table, [
+        $database = new \EG_Query($instance->table, [
             'primaryKey' => $instance->primaryKey,
             'created_at' => $instance->created_at,
             'updated_at' => $instance->updated_at,
             'deleted_at' => $instance->deleted_at, 
-            'setter' => [$instance, 'setter'],
-        ]); 
+            'fields' => $instance->fields,
+            'editable' => $instance->editable,
+            'hidden' => $instance->hidden,
+            'fillable' => $instance->fillable,
+        ], $this->setter($instance->_data));
 
-       
+
         if (method_exists($database, $method)) {
             $results = $database->$method(...$arguments);
- 
+
             return $this->_format($results);
         } else {
             throw new \Exception('method does not exists');
@@ -129,7 +157,7 @@ abstract class Model
     public function _format($results)
     {
         // is array 
-        if (is_array($results) && count($results) > 0 && is_object($results[0]) ) {
+        if (is_array($results) && count($results) > 0 && is_array($results[0])) {
 
             return array_map(function ($result) {
                 return new static($result);
@@ -137,7 +165,7 @@ abstract class Model
         }
 
         // is object 
-        if (is_object($results) && !($results) instanceof \EGDB\Query) {
+        if (is_array($results) && !($results) instanceof \EG_Query) {
             return new static($results);
         }
 
@@ -147,53 +175,37 @@ abstract class Model
     // get static method
     public static function __callStatic($method, $arguments)
     {
-        $object = new static(); 
+        $object = new static();
         return $object->_load($object, $method, $arguments);
     }
 
     // get method
     public function __call($method, $arguments)
-    { 
+    {
         return $this->_load($this, $method, $arguments);
     }
 
-    # get data 
+    # get property 
     function __get($key)
     {
 
-        if(method_exists($this, $key)) {
-            $restrictedMethods = [
-                'setter',
-                'getter',
-                'data',
-                'rawData',
-                'foundRows',
-                'AffectedRows',
-                'lastQuery', 
-            ];
-
-            if (!in_array($key, $restrictedMethods)) {
-                return $this->$key();
-            }
+        if (array_key_exists($key, $this->_data)) {
+            return $this->_data[$key];
         }
 
-        if (isset($this->data->$key)) {
-            return $this->data->$key;
-        }
+        return null;
     }
 
     # set value
     function __set($key, $value)
     {
-        if (isset($this->rawData->$key)) {
-            $this->rawData->$key = $value;
-        }
+        $this->_data[$key] = $value;
     }
 
     # get data
     public function data()
     {
-        return $this->data;
+        return $this->_data;
     }
 
     // has one
@@ -205,7 +217,7 @@ abstract class Model
         $model = new $model();
         $model->table = $model->table ?: $model->table;
 
-        $results = $model->where($foreignKey, $this->$localKey)->first();
+        $results = $model->where($foreignKey . ' = ' . $this->$localKey)->first();
 
         return $model->_format($results);
     }
@@ -216,9 +228,9 @@ abstract class Model
         $foreignKey = $foreignKey ?: $this->primaryKey;
         $localKey = $localKey ?: $this->primaryKey;
 
-        $model = new $model(); 
-        $model->table = $model->table ?: $model->table; 
- 
+        $model = new $model();
+        $model->table = $model->table ?: $model->table;
+
         $results = $model->where($foreignKey . ' = ' . $this->$localKey)->get();
 
         return $model->_format($results);
@@ -233,7 +245,7 @@ abstract class Model
         $model = new $model();
         $model->table = $model->table ?: $model->table;
 
-        $results = $model->where($localKey, $this->$foreignKey)->first();
+        $results = $model->where($localKey . ' = ' . $this->$foreignKey)->first();
 
         return $model->_format($results);
     }
@@ -247,9 +259,8 @@ abstract class Model
         $model = new $model();
         $model->table = $model->table ?: $model->table;
 
-        $results = $model->where($localKey, $this->$foreignKey)->get();
+        $results = $model->where($localKey . ' = ' . $this->$foreignKey)->get();
 
         return $model->_format($results);
-    } 
-
+    }
 }

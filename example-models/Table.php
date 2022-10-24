@@ -1,19 +1,10 @@
 <?php 
 
-class Table extends \EGDB\Model
+class Table extends EG_Model
 {
-    protected $table = 'tables';
+    protected $table = 'tables'; 
 
-    public function setter($data)
-    {
-        return $data;
-    }
-
-    public function getter($data)
-    { 
-        $data->id = (int) $data->id; 
-        return $data;
-    }
+    protected $hidden = ['created_at', 'updated_at', 'deleted_at'];
 
     public function reservations()
     {
