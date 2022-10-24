@@ -4,13 +4,7 @@
  * Abstract model class for all models in the application.
  * @since 1.0.0
  */
-
-
-/**
- * Namespace
- */
-namespace EGDB;
-
+ 
 
 /**
  * Exit if accessed directly
@@ -22,7 +16,7 @@ defined('ABSPATH') or die('Direct Script not Allowed');
 /**
  * Load required files
  */
-require_once __DIR__ . '/Query.php';
+require_once __DIR__ . '/EG_Query.php';
 
 
 /**
@@ -37,7 +31,7 @@ abstract class Model
 
     protected $table = null;
 
-     /**
+    /**
      * primary key
      * @var string
      */
@@ -116,14 +110,17 @@ abstract class Model
             'created_at' => $instance->created_at,
             'updated_at' => $instance->updated_at,
             'deleted_at' => $instance->deleted_at, 
-            'setter' => [$instance, 'setter'],
-        ]); 
+            'fields' => $instance->fields,
+            'hidden' => $instance->hidden,
+            'fillable' => $instance->fillable,
+        ], $this->setter($instance->_data));
+
 
        
         // if method exists on query builder
         if (method_exists($database, $method)) {
             $results = $database->$method(...$arguments);
- 
+
             return $this->_format($results);
         } else {
             throw new \Exception('method does not exists');
@@ -136,7 +133,7 @@ abstract class Model
     public function _format($results)
     {
         // is array 
-        if (is_array($results) && count($results) > 0 && is_object($results[0]) ) {
+        if (is_array($results) && count($results) > 0 && is_array($results[0])) {
 
             return array_map(function ($result) {
                 return new static($result);
@@ -144,7 +141,7 @@ abstract class Model
         }
 
         // is object 
-        if (is_object($results) && !($results) instanceof \EGDB\Query) {
+        if (is_array($results) && !($results) instanceof \EG_Query) {
             return new static($results);
         }
 
@@ -154,17 +151,17 @@ abstract class Model
     // get static method
     public static function __callStatic($method, $arguments)
     {
-        $object = new static(); 
+        $object = new static();
         return $object->_load($object, $method, $arguments);
     }
 
     // get method non static
     public function __call($method, $arguments)
-    { 
+    {
         return $this->_load($this, $method, $arguments);
     }
 
-    # get data 
+    # get property 
     function __get($key)
     {
 
@@ -196,6 +193,8 @@ abstract class Model
         if (isset($this->_rawData->$key)) {
             $this->_rawData->$key = $value;
         }
+
+        $this->_data[$key] = $value; 
     }
 
     # get data
@@ -213,7 +212,7 @@ abstract class Model
         $model = new $model();
         $model->table = $model->table ?: $model->table;
 
-        $results = $model->where($foreignKey, $this->$localKey)->first();
+        $results = $model->where($foreignKey . ' = ' . $this->$localKey)->first();
 
         return $model->_format($results);
     }
@@ -224,9 +223,9 @@ abstract class Model
         $foreignKey = $foreignKey ?: $this->primaryKey;
         $localKey = $localKey ?: $this->primaryKey;
 
-        $model = new $model(); 
-        $model->table = $model->table ?: $model->table; 
- 
+        $model = new $model();
+        $model->table = $model->table ?: $model->table;
+
         $results = $model->where($foreignKey . ' = ' . $this->$localKey)->get();
 
         return $model->_format($results);
@@ -241,7 +240,7 @@ abstract class Model
         $model = new $model();
         $model->table = $model->table ?: $model->table;
 
-        $results = $model->where($localKey, $this->$foreignKey)->first();
+        $results = $model->where($localKey . ' = ' . $this->$foreignKey)->first();
 
         return $model->_format($results);
     }
@@ -255,9 +254,8 @@ abstract class Model
         $model = new $model();
         $model->table = $model->table ?: $model->table;
 
-        $results = $model->where($localKey, $this->$foreignKey)->get();
+        $results = $model->where($localKey . ' = ' . $this->$foreignKey)->get();
 
         return $model->_format($results);
-    } 
-
+    }
 }
