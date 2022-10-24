@@ -1,10 +1,10 @@
-<?php 
+<?php
 
 class Table extends EG_Model
 {
-    protected $table = 'tables'; 
+    protected $table = 'tables';
 
-    protected $hidden = ['created_at', 'updated_at', 'deleted_at'];
+    protected $hidden = [];
 
     public function reservations()
     {

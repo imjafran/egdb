@@ -65,7 +65,7 @@ final class EG_Query
      * @var array || string 
      * 
      */
-    protected $selects = ['*'];
+    protected $selects = [];
 
     /**
      * Where clause
@@ -149,12 +149,6 @@ final class EG_Query
     protected $fields = [];
 
     /**
-     * editable fields
-     * @var array 
-     */
-    protected $editable = [];
-
-    /**
      * hidden fields
      * @var array 
      */
@@ -185,9 +179,9 @@ final class EG_Query
             $this->updated_at = $args['updated_at'] ?? null;
             $this->deleted_at = $args['deleted_at'] ?? null;
 
-            $this->fields = $args['fields'] ?? [];
-            $this->editable = $args['editable'] ?? [];
+            $this->fields = $args['fields'] ?? []; 
             $this->hidden = $args['hidden'] ?? [];
+            $this->fillable = $args['fillable'] ?? [];
         }
 
 
@@ -207,7 +201,7 @@ final class EG_Query
             }
 
             // set data
-            $this->data = $data;
+            $this->data = $data; 
         }
     }
 
@@ -336,7 +330,7 @@ final class EG_Query
     }
 
     # Join
-    function join($joinTable, $joinOn, $joinType = 'left')
+    function join($joinTable, $joinOn, $joinType = 'LEFT')
     {
         $this->join = true;
         $this->joinType = $joinType;
@@ -378,15 +372,19 @@ final class EG_Query
             case 'insert':
                 $query = "INSERT INTO {$table} " . $this->getInsertQuery($data);
                 break;
+
             case 'update':
                 $query = "UPDATE {$table} SET " . $this->setFields($data);
                 break;
+
             case 'delete':
                 $query = "DELETE FROM {$table}";
                 break;
+
             case 'select':
             default:
-                $query = "SELECT {$this->selects} FROM {$table}";
+
+                $query = "SELECT " . $this->getSelectFields() . " FROM {$table}";
                 break;
         }
 
@@ -432,7 +430,7 @@ final class EG_Query
     }
 
     #setWhere
-    function setWhere($wheres, $whereType = 'and')
+    protected function setWhere($wheres, $whereType = 'and')
     {
         $where = '';
         $whereArray = [];
@@ -448,7 +446,7 @@ final class EG_Query
     }
 
     # Set Items
-    function setFields($data)
+    protected function setFields($data)
     {
         $data = $this->getPreparedData($data);
 
@@ -482,7 +480,7 @@ final class EG_Query
     }
 
     # Set Insert Query
-    function getInsertQuery($data)
+    protected function getInsertQuery($data)
     {
         $data = $this->getPreparedData($data);
 
@@ -516,8 +514,26 @@ final class EG_Query
         return '(' . implode(', ', $fields) . ') VALUES (' . implode(', ', $values) . ')';
     }
 
+    # Get Select Fields
+    protected function getSelectFields()
+    {
+        if ($this->selects && count($this->selects) > 0) {
+            return implode(', ', array_map(function ($select) {
+                
+                if( is_array ($select)) {
+                    return implode(', ', $select);
+                }
+
+                return $select;
+                
+            }, $this->selects));
+        }
+
+        return '*';
+    }
+
     # Prepare Variables
-    function prepare($query = '')
+    protected function prepare($query = '')
     {
         global $wpdb;
         $query = $wpdb->prepare($query, '');
@@ -595,11 +611,11 @@ final class EG_Query
 
         $this->reset();
 
-        return  $result;
+        return $result;
     }
 
     # reset
-    function reset()
+    protected function reset()
     {
         $this->query = null;
         $this->where = [];
@@ -613,56 +629,75 @@ final class EG_Query
         $this->joinTable = null;
         $this->joinOn = null;
         $this->type = 'select';
+        $this->selects = [];
         $this->data = [];
     }
 
     # Select
 
-    function select(){
+    function select()
+    {
         $args = func_get_args();
 
-        if (count($args) > 0) { 
+        if (count($args) > 0) {
 
-            $fields = array_map( function($field){
-                if(is_array($field)) {
-                    if(isset($field['as'])) {
-                        return $this->getTable() . '.' . $field['field'] . ' AS ' . $field['as'];
-                    } else {
-                        return implode(', ', $field);
-                    }
-                } else {
-                    return $field;
-                }
+            $fields = array_map(function ($field) {
+                if (is_array($field)) {
+                    if (isset($field[0]) && isset($field[1])) {
+                        return $this->getTable() . '.' . $field[0] . ' as ' . $field[1];
+                    } 
+
+                    return implode(', ', $field);
+                } 
+
+                return $field;
             }, $args);
 
             $this->selects[] = $fields;
-        } 
-  
+        }
+
         return $this;
     }
 
     # Select
-    function selectFrom( $selects, $table = null )
+    function selectFrom($selects, $table = null)
     {
         if (is_array($selects)) {
-            $selects = implode(', ', array_map(function ($field) use ($table) {
+
+            $selects = array_map(function ($field) use ($table) {
+
                 if (is_array($field)) {
-                    if (isset($field['as'])) {
-                        return $table . '.' . $field['field'] . ' AS ' . $field['as'];
-                    } else {
-                        return implode(', ', $field);
+
+                    if (isset($field[1])) {
+                        if ($table) {
+                            return $table . '.' . $field[0] . ' AS ' . $field[1];
+                        }
+
+                        return $field[0] . ' AS ' . $field[1];
                     }
-                } else {
-                    return $field;
+
+                    return implode(', ', $field);
                 }
-            }, $selects));
+
+                if ($table) {
+                    return $table . '.' . $field;
+                }
+
+                return $field;
+            }, $selects);
+
+
+
+            $this->selects[] = $selects;
+        } else {
+            if ($table) {
+                $this->selects[] = $table . '.' . $selects;
+            }
+
+
+            $this->selects[] = $selects;
         }
 
-        if ($table) {
-            $selects = str_replace('*', $table . '.*', $selects);
-        }
-
-        $this->select = $selects;
 
         return $this;
     }
@@ -845,7 +880,7 @@ final class EG_Query
     }
 
     # Search query
-    function searchQuery($search, $fields = [])
+    protected function searchQuery($search, $fields = [])
     {
         $search = trim($search);
         $search = explode(' ', $search);

@@ -50,13 +50,7 @@ abstract class EG_Model
      * fields
      * @var array 
      */
-    protected $fields = [];
-    
-    /**
-     * editable fields
-     * @var array 
-     */
-    protected $editable = [];
+    protected $fields = []; 
 
     /**
      * hidden fields
@@ -99,6 +93,16 @@ abstract class EG_Model
             }, $data);
 
             $this->_data = $this->getter( $array_data ); 
+
+            $hidden = $this->hidden;
+
+            if( !empty($hidden) ) {
+                foreach ($hidden as $key) {
+                   if( isset($this->_data[$key]) ) {
+                        unset($this->_data[$key]);
+                   }
+                }
+            }
  
         }
 
@@ -136,7 +140,6 @@ abstract class EG_Model
             'updated_at' => $instance->updated_at,
             'deleted_at' => $instance->deleted_at, 
             'fields' => $instance->fields,
-            'editable' => $instance->editable,
             'hidden' => $instance->hidden,
             'fillable' => $instance->fillable,
         ], $this->setter($instance->_data));
@@ -199,7 +202,13 @@ abstract class EG_Model
     # set value
     function __set($key, $value)
     {
-        $this->_data[$key] = $value;
+        $fillable = $this->fillable;
+        
+        if (count($fillable) > 0 && !in_array($key, $fillable)) {
+            throw new \Exception('Field not fillable');
+        }
+
+        $this->_data[$key] = $value; 
     }
 
     # get data
