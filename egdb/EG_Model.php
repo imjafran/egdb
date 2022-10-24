@@ -1,7 +1,7 @@
 <?php
 
 /**
- * Abstract model class for all models in the application.
+ * Abstract base class for all models 
  * @since 1.0.0
  */
  
@@ -11,24 +11,15 @@
  */
 defined('ABSPATH') or die('Direct Script not Allowed');
 
-
-
 /**
- * Load required files
+ * Load files
  */
 require_once __DIR__ . '/EG_Query.php';
 
 
-/**
- * Abstract model class
- */
-abstract class Model
+// abstract model class
+abstract class EG_Model
 {
-     /**
-     * table
-     * @var string
-     */
-
     protected $table = null;
 
     /**
@@ -55,28 +46,67 @@ abstract class Model
      */
     protected $deleted_at = 'deleted_at';
 
-     /**
-     * _data
-     * @var object
+    /**
+     * fields
+     * @var array 
      */
-    public $_data = null;
+    protected $fields = []; 
 
-     /**
-     * _rawData
-     * @var object
+    /**
+     * hidden fields
+     * @var array 
      */
-    protected $rawData = null; 
+    protected $hidden = [];
 
+    /**
+     * fillable fields
+     * @var array 
+     */
+    protected $fillable = [];
+
+
+    /**
+     * data
+     * @var array 
+     */
+    public $_data = [];
 
     # constructor
     function __construct($data = null)
     {
-        // assign data if NOT null
-        if ($data) {
-            $this->_rawData = $data;
-            
-            $this->_data = $this->getter($data);
-        } 
+        if ($data) { 
+
+            $array_data = array_map(function ($value) {
+                switch (true) {
+                    case is_numeric($value):
+                        return (int) $value;
+                        break;
+
+                    case is_bool($value):
+                        return (bool) $value;
+                        break;
+
+                    default:
+                        return maybe_unserialize($value);
+                        break;
+                }
+            }, $data);
+
+            $this->_data = $this->getter( $array_data ); 
+
+            $hidden = $this->hidden;
+
+            if( !empty($hidden) ) {
+                foreach ($hidden as $key) {
+                   if( isset($this->_data[$key]) ) {
+                        unset($this->_data[$key]);
+                   }
+                }
+            }
+ 
+        }
+
+        return $this;
     }
 
     # default setter applied before insert or update
@@ -85,7 +115,7 @@ abstract class Model
         return $data;
     }
 
-    # default getter applied after fetching row(s)
+    # default getter
     function getter($data)
     {
         return $data;
@@ -104,8 +134,7 @@ abstract class Model
             throw new \Exception('Table not set');
         }
 
-        // instantiate core query builder 
-        $database = new \EGDB\Query($instance->table, [
+        $database = new \EG_Query($instance->table, [
             'primaryKey' => $instance->primaryKey,
             'created_at' => $instance->created_at,
             'updated_at' => $instance->updated_at,
@@ -116,8 +145,6 @@ abstract class Model
         ], $this->setter($instance->_data));
 
 
-       
-        // if method exists on query builder
         if (method_exists($database, $method)) {
             $results = $database->$method(...$arguments);
 
@@ -155,7 +182,7 @@ abstract class Model
         return $object->_load($object, $method, $arguments);
     }
 
-    // get method non static
+    // get method
     public function __call($method, $arguments)
     {
         return $this->_load($this, $method, $arguments);
@@ -165,33 +192,20 @@ abstract class Model
     function __get($key)
     {
 
-        if(method_exists($this, $key)) {
-            $restrictedMethods = [
-                '_setter',
-                '_getter',
-                '_data',
-                '_rawData',
-                'hasOne',
-                'hasMany',
-                'belongsTo',
-                'belongsToMany',
-            ];
-
-            if (!in_array($key, $restrictedMethods)) {
-                return $this->$key();
-            }
+        if (array_key_exists($key, $this->_data)) {
+            return $this->_data[$key];
         }
 
-        if (isset($this->_data->$key)) {
-            return $this->_data->$key;
-        }
+        return null;
     }
 
     # set value
     function __set($key, $value)
     {
-        if (isset($this->_rawData->$key)) {
-            $this->_rawData->$key = $value;
+        $fillable = $this->fillable;
+        
+        if (count($fillable) > 0 && !in_array($key, $fillable)) {
+            throw new \Exception('Field not fillable');
         }
 
         $this->_data[$key] = $value; 

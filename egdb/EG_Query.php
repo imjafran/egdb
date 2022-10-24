@@ -1,20 +1,16 @@
 <?php
 
 /**
- * EGDB Core Class as Query Builder
- * Base Query
+ * Final Query Class 
  * @since 1.0.0
  */
 
 # Exit if accessed directly
 defined('ABSPATH') or die('Direct Script not Allowed');
 
+// abstract model class works with WPDB
 
-/**
- * Core EGDB Query Class 
- */
-
-final class Query
+final class EG_Query
 {
     /**
      * table prefix
@@ -170,12 +166,7 @@ final class Query
      * @var Array
      * Example: ['id' => 1, 'name' => 'test']  
      */
-    public $data = [];
-
-    /**
-     * Data setter before insert or update
-     */
-    protected $setter_callback = null;
+    protected $data = [];
 
     # Constructor
     function __construct($table = '', $args = null, $data)
@@ -828,11 +819,7 @@ final class Query
 
         $this->data = $data;
 
-        if ($this->created_at) {
-            $this->data['created_at'] = gmdate('Y-m-d H:i:s');
-        }
-
-       return $this->execute();  
+        return $this->execute();
     }
 
     # update
@@ -846,7 +833,7 @@ final class Query
             $this->where($where, $whereType);
         } elseif (isset($data[$this->primaryKey])) {
             $this->where("{$this->primaryKey} = {$data[$this->primaryKey]}");
-        } 
+        }
 
         return $this->execute();
     }
@@ -868,6 +855,7 @@ final class Query
         global $wpdb;
         return $wpdb->insert_id;
     }
+
 
     # exists
     function exists($id)
@@ -945,4 +933,3 @@ final class Query
         return $wpdb->last_error;
     }
 }
-

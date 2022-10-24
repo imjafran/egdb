@@ -21,8 +21,8 @@ require_once __DIR__ . '/egdb/EG_Model.php';
 require_once __DIR__ . '/example-models/Table.php';
 require_once __DIR__ . '/example-models/Reservation.php';
 
-final class EGDB_Example_Plugin {
-
+final class EGDB_Example_Plugin
+{
     # constructor
     function __construct()
     {
@@ -46,8 +46,9 @@ final class EGDB_Example_Plugin {
     # get tables
     public function get_tables()
     {
-        $result = Table::first();
-        return new WP_REST_Response( ['reservations' => $result->data()], 200 );
+        $result = Table::find(1);
+
+        return new WP_REST_Response($result);
     }
 
     # get reservations

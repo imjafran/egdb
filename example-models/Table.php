@@ -1,6 +1,6 @@
 <?php
 
-class Table extends \EG_Model
+class Table extends EG_Model
 {
     protected $table = 'tables';
 
